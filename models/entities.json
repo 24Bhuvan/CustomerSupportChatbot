@@ -1,0 +1,17 @@
+{
+    "service": [
+        "analytics",
+        "dashboard",
+        "ai model",
+        "chatbot"
+    ],
+    "company": [
+        "monarch analytics",
+        "monarch"
+    ],
+    "contact": [
+        "email",
+        "phone",
+        "support"
+    ]
+}
