@@ -1,0 +1,72 @@
+🔧 End-to-End Pipeline
+1. Data Collection → Preprocessing
+
+Collect raw chat logs / FAQs → save as .csv
+
+utils/preprocessing.py:
+
+clean text (lowercase, remove noise)
+tokenize
+map synonyms (using nlu/data/synonyms.csv)
+Output → processed_intents.csv
+
+2. NLU Training Pipeline
+Intent Classification
+
+nlu/intent_classifier.py
+
+train ML/DL model (e.g., Logistic Regression / BERT)
+save model → models/intent_model.pkl
+
+Entity Extraction
+
+nlu/entity_extractor.py
+
+rule-based / spaCy NER
+save entity patterns → models/entities.json
+
+3. Inference Pipeline
+
+Load models → classify intent + extract entities
+
+Pass structured result to response layer:
+
+{
+  "intent": "refund_status",
+  "entities": {"order_id": "1234"}
+}
+
+4. Response Generation
+
+responses/response_generator.py
+
+map intent → template or LLM response
+responses/fallback.py
+
+low confidence? → fallback message
+Uses config.py thresholds for confidence.
+
+5. Streamlit App Pipeline
+
+app/main.py
+
+User input → preprocessing → NLU → response generator
+Display final answer
+Log interactions via utils/logger.py
+
+6. Testing Pipeline
+
+tests/
+
+intent tests → test_intents.py
+response mapping → test_responses.py
+end-to-end UI check → test_app.py
+
+7. Monitoring Pipeline
+
+Log predictions + confidence
+
+Track:
+accuracy drift
+fallback rate
+new unseen queries → push back to data collection
