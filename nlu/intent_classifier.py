@@ -1,7 +1,7 @@
 import os
 import joblib
 import logging
-from typing import Tuple
+from typing import Tuple, Optional
 
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -25,9 +25,17 @@ DATA_PATH = "nlu/data/processed_intents.csv"
 
 
 class IntentClassifier:
+    """
+    Production-ready Intent Classifier:
+    - Trains a TF-IDF + Logistic Regression model
+    - Saves the trained model
+    - Loads model automatically for inference
+    - Predicts intent + confidence scores
+    """
+
     def __init__(self, model_path: str = MODEL_PATH):
         self.model_path = model_path
-        self.model = None
+        self.model: Optional[Pipeline] = None
 
     # ---------------------------
     # Load Dataset
@@ -39,41 +47,39 @@ class IntentClassifier:
         df = pd.read_csv(path)
 
         if "pattern" not in df.columns or "intent" not in df.columns:
-            raise KeyError(
-                "CSV must contain 'pattern' (text) and 'intent' columns."
-            )
+            raise KeyError("CSV must contain 'pattern' (text) and 'intent' columns.")
 
         return df["pattern"], df["intent"]
 
     # ---------------------------
-    # Train Model
+    # Train Model and Save
     # ---------------------------
     def train(self):
-        logger.info("Loading dataset...")
+        logger.info("Loading training dataset...")
         X, y = self.load_data()
 
-        logger.info("Splitting dataset...")
+        logger.info("Splitting dataset into train/test...")
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=0.2, random_state=42, stratify=y
         )
 
-        logger.info("Building training pipeline...")
+        logger.info("Building ML pipeline (TF-IDF + Logistic Regression)...")
         pipeline = Pipeline([
             ("tfidf", TfidfVectorizer()),
-            ("clf", LogisticRegression(max_iter=200))
+            ("clf", LogisticRegression(max_iter=300))
         ])
 
-        logger.info("Training model...")
+        logger.info("Training intent classifier...")
         pipeline.fit(X_train, y_train)
 
         logger.info("Evaluating model...")
-        preds = pipeline.predict(X_test)
-        acc = accuracy_score(y_test, preds)
+        predictions = pipeline.predict(X_test)
+        accuracy = accuracy_score(y_test, predictions)
 
-        logger.info(f"Accuracy: {acc:.4f}")
-        logger.info("Classification Report:\n" + classification_report(y_test, preds))
+        logger.info(f"Accuracy: {accuracy:.4f}")
+        logger.info("Classification Report:\n" + classification_report(y_test, predictions))
 
-        logger.info("Saving model...")
+        logger.info("Saving trained model...")
         os.makedirs("models", exist_ok=True)
         joblib.dump(pipeline, self.model_path)
 
@@ -84,35 +90,43 @@ class IntentClassifier:
     # ---------------------------
     def load(self):
         if not os.path.exists(self.model_path):
-            raise FileNotFoundError("Model not found. Train the model first.")
+            raise FileNotFoundError(
+                f"Model not found at {self.model_path}. Train the model first."
+            )
         self.model = joblib.load(self.model_path)
-        logger.info("Intent model loaded.")
+        logger.info("Intent model loaded successfully.")
 
     # ---------------------------
-    # Predict Intent
+    # Predict Intent Only
     # ---------------------------
-    def predict(self, text: str):
+    def predict(self, text: str) -> str:
         if self.model is None:
             self.load()
         return self.model.predict([text])[0]
 
     # ---------------------------
-    # Predict with Confidence
+    # Predict Intent + Confidence
     # ---------------------------
-    def predict_proba(self, text: str):
+    def predict_with_confidence(self, text: str):
+        """
+        Returns:
+            intent: predicted label
+            confidence: float (0–1)
+        """
         if self.model is None:
             self.load()
 
-        probs = self.model.predict_proba([text])[0]
+        # Probability scores for each class
+        probabilities = self.model.predict_proba([text])[0]
         intent = self.model.predict([text])[0]
-        confidence = max(probs)
+        confidence = max(probabilities)
 
-        return intent, confidence
+        return intent, float(confidence)
 
 
 # ---------------------------
-# Script Runner
+# Script Runner for Training
 # ---------------------------
 if __name__ == "__main__":
-    clf = IntentClassifier()
-    clf.train()
+    classifier = IntentClassifier()
+    classifier.train()

@@ -19,22 +19,41 @@ ENTITIES_PATH = "models/entities.json"
 
 
 class EntityExtractor:
+    """
+    Production-ready Entity Extractor:
+    - Loads rule-based patterns from entities.json
+    - Uses spaCy NER for automatic entity detection
+    - Merges rule-based + NER results cleanly
+    """
+
     def __init__(self, patterns_path: str = ENTITIES_PATH):
         self.patterns_path = patterns_path
         self.nlp = spacy.load("en_core_web_sm")
-        self.patterns = {}
+        self.patterns: Dict[str, List[str]] = {}
+
+        # Auto-load patterns at initialization
+        self._safe_load_patterns()
 
     # ---------------------------
     # Load Saved Entity Patterns
     # ---------------------------
-    def load_patterns(self):
+    def _safe_load_patterns(self):
+        """Load patterns safely when the class is created."""
         if not os.path.exists(self.patterns_path):
-            raise FileNotFoundError("Entity patterns not found. Create them first.")
+            logger.warning(
+                f"No entity pattern file found at {self.patterns_path}. "
+                "Entity extraction will still work with spaCy, but rule-based patterns will be empty."
+            )
+            self.patterns = {}
+            return
 
-        with open(self.patterns_path, "r") as f:
-            self.patterns = json.load(f)
-
-        logger.info("Entity patterns loaded.")
+        try:
+            with open(self.patterns_path, "r") as f:
+                self.patterns = json.load(f)
+            logger.info("Entity patterns loaded successfully.")
+        except Exception as e:
+            logger.error(f"Error loading entity patterns: {e}")
+            self.patterns = {}
 
     # ---------------------------
     # Save Entity Patterns
@@ -52,7 +71,11 @@ class EntityExtractor:
     # Extract Entities (Rule-based + spaCy NER)
     # ---------------------------
     def extract(self, text: str) -> Dict[str, str]:
-        entities = {}
+        """Extract entities from text using rule-based + spaCy NER."""
+        if not text:
+            return {}
+
+        entities: Dict[str, str] = {}
 
         # --- Rule-based Matching ---
         for entity_name, values in self.patterns.items():
@@ -61,20 +84,24 @@ class EntityExtractor:
                     entities[entity_name] = val
 
         # --- spaCy Named Entity Recognition ---
-        doc = self.nlp(text)
-        for ent in doc.ents:
-            entities[ent.label_] = ent.text
+        try:
+            doc = self.nlp(text)
+            for ent in doc.ents:
+                # Avoid overwriting rule-based matches
+                entities.setdefault(ent.label_, ent.text)
+        except Exception as e:
+            logger.error(f"spaCy NER error: {e}")
 
         return entities
 
 
 # ------------------------------------------------
-# Script Runner (for creating initial rule patterns)
+# Script Runner (for initial pattern creation)
 # ------------------------------------------------
 if __name__ == "__main__":
     extractor = EntityExtractor()
 
-    # Example entity patterns — you can modify this later
+    # Example patterns — modify later if needed
     sample_patterns = {
         "service": ["analytics", "dashboard", "ai model", "chatbot"],
         "company": ["monarch analytics", "monarch"],
