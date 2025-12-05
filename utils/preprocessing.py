@@ -23,8 +23,8 @@ def preprocess_intents(input_path, output_path):
 
 if __name__ == "__main__":
     preprocess_intents(
-        r"c:/Users/USER/OneDrive/Desktop/x/CustomerSupportChatbot/nlu/data/intents.csv",
-        r"c:/Users/USER/OneDrive/Desktop/x/CustomerSupportChatbot/nlu/data/processed_intents.csv"
+        r"nlu/data/intents.csv",
+        r"nlu/data/processed_intents.csv"
     )
 
 
